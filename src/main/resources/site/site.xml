@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site xmlns="urn:enonic:xp:model:1.0">
+  <form>
+    <input type="TextLine" name="nextjsUrl">
+      <label>NextJS server URL</label>
+      <default>http://localhost:3000</default>
+    </input>
+    <input type="TextLine" name="nextjsToken">
+      <label>NextJS API token</label>
+    </input>
+  </form>
+  <mappings>
+    <mapping controller="/lib/nextjs/proxy.js" order="99">
+      <pattern>/.*</pattern>
+    </mapping>
+    <mapping controller="/lib/nextjs/proxy.js" order="98">
+      <service>component</service>
+    </mapping>
+  </mappings>
+</site>
