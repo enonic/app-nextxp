@@ -10,10 +10,10 @@
     </input>
   </form>
   <mappings>
-    <mapping controller="/lib/nextjs/proxy.js" order="11">
+    <mapping controller="/lib/nextxp/proxy.js" order="11">
       <pattern>/.*</pattern>
     </mapping>
-    <mapping controller="/lib/nextjs/proxy.js" order="10">
+    <mapping controller="/lib/nextxp/proxy.js" order="10">
       <service>component</service>
     </mapping>
   </mappings>
