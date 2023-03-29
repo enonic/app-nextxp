@@ -1,6 +1,7 @@
 plugins {
     id 'maven-publish'
     id 'com.enonic.xp.app' version '3.2.0'
+    id 'com.enonic.defaults' version '2.1.2'
 }
 
 app {
@@ -12,19 +13,8 @@ app {
 }
 
 dependencies {
-    implementation "com.enonic.xp:core-api:${xpVersion}"
-    implementation "com.enonic.xp:portal-api:${xpVersion}"
     include "com.enonic.xp:lib-cluster:${xpVersion}"
     include "com.enonic.lib:lib-nextxp:1.0.0"
-    //include "com.enonic.xp:lib-auth:${xpVersion}"
-    //include "com.enonic.xp:lib-context:${xpVersion}"
-    //include "com.enonic.xp:lib-i18n:${xpVersion}"
-    //include "com.enonic.xp:lib-io:${xpVersion}"
-    //include "com.enonic.xp:lib-mail:${xpVersion}"
-    //include "com.enonic.xp:lib-repo:${xpVersion}"
-    //include "com.enonic.xp:lib-websocket:${xpVersion}"
-    //include "com.enonic.lib:lib-mustache:2.0.0"
-    //include "com.enonic.lib:lib-util:3.0.0"
 }
 
 repositories {
