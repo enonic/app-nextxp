@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <site xmlns="urn:enonic:xp:model:1.0">
   <form>
-    <input type="TextLine" name="nextjsUrl">
-      <label>NextJS server URL</label>
-      <default>http://localhost:3000</default>
-    </input>
-    <input type="TextLine" name="nextjsToken">
-      <label>NextJS API token</label>
+    <input type="CustomSelector" name="nextjs-config">
+      <label>Configuration name</label>
+      <occurrences minimum="0" maximum="1"/>
+      <config>
+        <service>configurations</service>
+      </config>
     </input>
   </form>
   <mappings>
