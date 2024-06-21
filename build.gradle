@@ -14,7 +14,7 @@ app {
 
 dependencies {
     include "com.enonic.xp:lib-cluster:${xpVersion}"
-    include "com.enonic.lib:lib-nextxp:3.0.0"
+    include "com.enonic.lib:lib-nextxp:3.0.1"
 }
 
 repositories {
