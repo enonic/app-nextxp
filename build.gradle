@@ -17,7 +17,7 @@ targetCompatibility = sourceCompatibility
 
 dependencies {
     include "com.enonic.xp:lib-cluster:${xpVersion}"
-    include "com.enonic.lib:lib-nextxp:3.0.2"
+    include "com.enonic.lib:lib-nextxp:3.0.3"
 }
 
 repositories {
