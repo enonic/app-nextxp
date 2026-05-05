@@ -1,0 +1,5 @@
+kind: "Application"
+title: "Next.XP"
+description: "Hassle-free integration of Next.js apps with Enonic XP"
+vendorName: "Enonic AS"
+vendorUrl: "https://www.enonic.com"
