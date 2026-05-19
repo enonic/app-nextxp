@@ -11,6 +11,9 @@ jobs:
       - id: build-and-publish
         uses: enonic/release-tools/build-and-publish@master
         with:
+          releaseBranch: |
+            master
+            4.x
           repoUser: ci
           repoPassword: ${{ secrets.ARTIFACTORY_PASSWORD }}
 
