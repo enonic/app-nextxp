@@ -1,0 +1,9 @@
+kind: "CMS"
+form:
+  - type: "CustomSelector"
+    name: "nextjs-config"
+    label: "Configuration name"
+    occurrences:
+      min: 0
+      max: 1
+    service: "configurations"

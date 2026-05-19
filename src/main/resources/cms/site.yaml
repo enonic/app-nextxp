@@ -1,0 +1,8 @@
+kind: "Site"
+mappings:
+  - controller: "/lib/nextxp/proxy.js"
+    order: 11
+    pattern: "/.*"
+  - controller: "/lib/nextxp/proxy.js"
+    service: "component"
+    order: 10
