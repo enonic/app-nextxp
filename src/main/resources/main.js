@@ -6,7 +6,6 @@ const initialize = function () {
     nextjsEventLib.subscribe();
 };
 
-
-if (clusterLib.isMaster()) {
+if (clusterLib.isLeader()) {
     initialize();
 }
