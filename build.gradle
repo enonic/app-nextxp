@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
     include xplibs.cluster
-    include "com.enonic.lib:lib-nextxp:4.0.0"
+    include "com.enonic.lib:lib-nextxp:4.0.1"
 }
 
 repositories {
