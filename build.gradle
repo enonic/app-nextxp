@@ -12,12 +12,15 @@ app {
     systemVersion = "${xpVersion}"
 }
 
-sourceCompatibility = JavaVersion.VERSION_11
-targetCompatibility = sourceCompatibility
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of( 17 )
+    }
+}
 
 dependencies {
     include "com.enonic.xp:lib-cluster:${xpVersion}"
-    include "com.enonic.lib:lib-nextxp:3.0.3"
+    include "com.enonic.lib:lib-nextxp:3.0.4"
 }
 
 repositories {
