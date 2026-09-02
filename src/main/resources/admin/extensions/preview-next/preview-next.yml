@@ -1,0 +1,14 @@
+kind: "AdminExtension"
+title:
+  text: "Next.js Preview"
+  i18n: "widget.preview.nextjs.name"
+description:
+  text: "Preview Next.js content in Content Studio"
+  i18n: "widget.preview.nextjs.description"
+interfaces:
+  - "contentstudio.liveview"
+config:
+  auto: "true"
+  allowPath: "${site}/*"
+  allowContentType: "*"
+  order: "80"

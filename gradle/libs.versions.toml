@@ -1,0 +1,26 @@
+[versions]
+guava = "33.4.8-jre"
+junit5 = "5.13.4"
+mockito = "5.20.0"
+assertj = "3.23.1"
+libHttpClient = "3.2.2"
+libCache = "2.2.1"
+commonsText = "1.14.0"
+
+[libraries]
+guava-guava = { module = "com.google.guava:guava", version.ref = "guava" }
+
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit5" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+mockito-bom = { module = "org.mockito:mockito-bom", version.ref = "mockito" }
+mockito-core = { module = "org.mockito:mockito-core" }
+mockito-jupiter = { module = "org.mockito:mockito-junit-jupiter" }
+
+assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+
+lib-http-client = { module = "com.enonic.lib:lib-http-client", version.ref = "libHttpClient" }
+lib-cache = { module = "com.enonic.lib:lib-cache", version.ref = "libCache" }
+
+apache-commons-text = { module = "org.apache.commons:commons-text", version.ref = "commonsText" }

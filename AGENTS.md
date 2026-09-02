@@ -1,82 +1,80 @@
 # AGENTS.md
 
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
+Guidance for AI coding agents (Claude Code, Codex, Gemini CLI, Cursor, Copilot, Warp and others) working in this repository.
 
-## Project Overview
+## What This Is
 
-**app-nextxp** is an Enonic XP application that enables integration between Enonic XP CMS and Next.js frontend applications. It acts as a
-bridge: when content is previewed in Enonic Content Studio, this app proxies rendering requests to an external Next.js server and returns
-the result as a preview.
+An Enonic XP Content Studio preview widget (`com.enonic.app.nextxp`) that enables editors to preview Next.js-rendered content. It fetches
+URL mappings dynamically from the Next.js server at `/api/mappings` (unlike its predecessor `app-liveview-next` which reads them from a
+`.cfg` config file).
 
-The app itself is a thin shell — nearly all logic lives in the companion library **lib-nextxp** (`com.enonic.lib:lib-nextxp`), which is
-included as a Gradle dependency.
+## Build & Test
 
-## Build Commands
-
-```
-./gradlew build          # Build the application JAR
-./gradlew deploy         # Deploy to a local XP instance (XP_HOME must be set)
-./gradlew clean build    # Clean and rebuild
+```bash
+./gradlew build          # Build the app (produces build/libs/app-nextxp.jar)
+./gradlew test           # Run Java tests (JUnit 5 + Mockito)
+./gradlew clean build    # Full rebuild
 ```
 
-There are no tests or linting configured in this repository.
+Requires: Java 17+, Gradle 9.4.1 (wrapper included). Uses Enonic XP plugin 4.0.0-A3 via `com.enonic.xp.settings` in `settings.gradle`.
+Dependencies are managed through `gradle/libs.versions.toml` (version catalog) and `xplibs.*` for XP platform libs.
 
 ## Architecture
 
-### This App (app-nextxp)
+Two-layer design: **Java** for crypto and content-to-URL resolution, **JavaScript** for orchestration.
 
-The app has three source files under `src/main/resources/`:
+### Request Flow
 
-- **main.js** — Application entry point. On the master cluster node, subscribes to XP node/repo events via `lib-nextxp/event` to trigger
-  Next.js revalidation when content changes.
-- **site/site.xml** — Declares a site-level config field (`nextjs-config` CustomSelector) and two controller mappings that route all
-  requests through `lib-nextxp/proxy.js`.
-- **services/configurations/configurations.js** — HTTP service backing the CustomSelector; returns the list of named Next.js configurations
-  from `lib-nextxp/config`.
+1. `preview-next.js` (widget controller) receives request from Content Studio
+2. `config.js` reads `url` + `secret` from `.cfg` file, resolved via site's CustomSelector config name
+3. `mappings.js` fetches mappings from `<url>/api/mappings` (cached 24h via `lib-cache`)
+4. Java `UrlMappingsResolver` resolves content to an external URL using source matching + template substitution
+5. Java `PayloadEncoder` encrypts `{xpProject}` with AES-256-GCM
+6. Widget returns response with `?xp=<encrypted-blob>` appended to the resolved URL
 
-### Companion Library (lib-nextxp)
+### Java Layer (`src/main/java/com/enonic/app/preview/nextjs/`)
 
-All core logic lives here. The key modules (ES6, transpiled by Gradle plugin):
+- `PayloadEncoder` — AES-256-GCM encryption/decryption, SHA-256 key derivation
+- `UrlMappingsResolver` — resolves content ID to external URL via mapping rules (ScriptBean, called from JS)
+- `UrlMapping` — mapping rule: sources (match patterns) + target (URL template with `${field}` placeholders)
+- `ContentFieldAccessor` — implements `StringLookup` for Apache Commons `StringSubstitutor`; resolves content fields (`_id`, `_name`,
+  `_path`, `type`, `data.*`, `x.*`) and evaluates constraint expressions
+- `MatchStrategy` — `ANY` (first match wins) vs `ALL` (all must match)
+- `PreviewCspProcessor` — `AdminExtensionResponseProcessor` (OSGi component, requires XP ≥ 8.1) adding configured Next.js origins to the
+  Content Studio tool page's `frame-src`/`connect-src` CSP so the preview iframe can render them; falls back to `http://localhost:3000`
+  only when XP runs in dev mode — in prod, unconfigured means no CSP contribution
 
-- **proxy.es6** — Main proxy controller. Receives XP requests, forwards them to the configured Next.js server via `lib-http-client`, manages
-  Next.js preview cookies (cached per site), handles redirects/retries, and post-processes HTML/JS/CSS responses to rewrite URLs for Content
-  Studio embedding.
-- **config.es6** — Reads `app.config` properties matching `nextjs.<name>.url` / `nextjs.<name>.secret` to support multiple named Next.js
-  configurations. Falls back to `http://127.0.0.1:3000` with secret `mySecretKey`. Resolves which config applies to a site via its
-  `siteConfig`.
-- **event.es6** — Subscribes to XP `node.*` and `repository.*` events. On content publish (master branch), sends revalidation requests (
-  `/api/revalidate`) to the Next.js server. Uses a Java-based debounce executor for bulk revalidation.
-- **parsing.es6** — Parses XP request paths into frontend-relative paths, handling edit mode (ID-based URLs), component sub-paths (
-  `/_/component/...`), and query parameter serialization.
-- **postprocessing.es6** — Rewrites URLs in proxied HTML/JS/CSS responses so that `/_next/...` and `/api/...` references point through the
-  XP proxy rather than directly to the Next.js server. Also extracts single-component HTML via
-  `<details data-single-component-output="true">` markers and injects a `<base>` tag for correct asset resolution.
+### JavaScript Layer (`src/main/resources/`)
 
-### Configuration
+- `admin/extensions/preview-next/preview-next.js` — widget entry point
+- `lib/export/config.js` — parses `nextjs.<name>.(url|secret)` from app config, site-aware config resolution
+- `lib/export/mappings.js` — fetches from `/api/mappings`, caches with `lib-cache` (24h TTL), bridges API response to `UrlMappingsResolver`
+  format via `toResolverConfig()`
+- `lib/export/widget.js` — shared utilities (param validation, context switching, response builders, `buildNextUrl()`)
+- `services/configurations/configurations.js` — CustomSelector service listing available configs
 
-Next.js server URLs and secrets are configured in `<xp-home>/config/com.enonic.app.nextxp.cfg`:
+## Configuration
+
+Config file: `com.enonic.app.nextxp.cfg`
 
 ```properties
 nextjs.default.url=http://localhost:3000
 nextjs.default.secret=mySecret
-# Multiple named configs supported:
 nextjs.production.url=https://my-nextjs-app.example.com
 nextjs.production.secret=prodSecret
 ```
 
-Sites select a configuration via the `nextjs-config` field in the site config (Content Studio).
+Sites select their config via a CustomSelector form field (`cms.yml` -> `configurations` service). Resolution: site config name -> named
+config -> `default` -> hardcoded `http://127.0.0.1:3000`.
 
-### Key Concepts
+## Mapping Source Format
 
-- The proxy only works on the **draft** branch and is blocked in **live** mode — it's designed for Content Studio preview, not production
-  serving.
-- Next.js preview cookies (`__prerender_bypass`) are cached in-memory per site with a 1-hour TTL and 900-entry limit.
-- Revalidation events only fire on the **master** cluster node to avoid duplicate requests.
-- Move/rename events track old paths to revalidate both old and new content URLs.
+Sources mix content field constraints and path regex in a single list (parsed by `ContentFieldAccessor` and `UrlMapping.matchSource()`):
 
-## Gradle & Dependencies
+- Content constraints: `type:app:article`, `data.category:foo`, `_path:'/features/.*'`
+- Path regex: `/articles/.*`, `/products/p1\\?category=foo`
 
-- **XP SDK**: version defined in `gradle.properties` as `xpVersion` (currently 7.12.0)
-- **Gradle plugins**: `com.enonic.xp.app` (XP app packaging), `com.enonic.defaults` (Enonic defaults)
-- **Runtime deps**: `lib-cluster` (from XP SDK), `lib-nextxp` (companion library)
-- Java source compatibility: 11
+## Design Docs
+
+- `docs/superpowers/specs/2026-04-09-preview-nextjs-design.md` — full spec
+- `docs/superpowers/plans/2026-04-09-preview-nextjs.md` — implementation plan

@@ -1,0 +1,12 @@
+kind: "CMS"
+form:
+  - type: "CustomSelector"
+    name: "configName"
+    label: "Configuration name"
+    helpText:
+      text: "Configuration name from app config file. \"Default\" will be used if omitted."
+      i18n: "input.configName.help"
+    occurrences:
+      min: 0
+      max: 1
+    service: "configurations"

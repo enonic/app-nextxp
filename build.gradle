@@ -1,16 +1,47 @@
 plugins {
-    id 'maven-publish'
     id 'com.enonic.xp.app'
-    id 'com.enonic.defaults' version '2.1.7'
+}
+
+app {
 }
 
 dependencies {
+    implementation xplibs.api.core
+    implementation xplibs.api.portal
+    implementation xplibs.api.script
+    implementation xplibs.api.admin
+    implementation xplibs.api.web
+
+    include xplibs.content
+    include xplibs.portal
+    include xplibs.context
+    include xplibs.i18n
+    include xplibs.event
+    include xplibs.node
+    include xplibs.project
     include xplibs.cluster
-    include "com.enonic.lib:lib-nextxp:5.0.0"
+
+    implementation libs.guava.guava
+    include libs.apache.commons.text
+    include libs.lib.http.client
+    include libs.lib.cache
+
+    testImplementation platform( libs.junit.bom )
+    testImplementation libs.junit.jupiter
+    testRuntimeOnly libs.junit.launcher
+
+    testImplementation platform( libs.mockito.bom )
+    testImplementation libs.mockito.core
+    testImplementation libs.mockito.jupiter
+    testImplementation libs.assertj.core
+}
+
+test {
+    useJUnitPlatform()
 }
 
 repositories {
     mavenLocal()
     mavenCentral()
-    xp.enonicRepo('dev')
+    xp.enonicRepo( 'dev' )
 }

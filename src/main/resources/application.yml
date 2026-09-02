@@ -1,0 +1,5 @@
+kind: "Application"
+title: "Next.js Preview"
+description: "Next.js preview widget for Content Studio"
+vendorName: "Enonic"
+vendorUrl: "https://www.enonic.com"

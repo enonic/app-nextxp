@@ -1,12 +1,12 @@
-const nextjsConfigLib = require('/lib/nextxp/config');
+var configLib = require('/lib/export/config');
 
 exports.get = function (request) {
-    const configs = nextjsConfigLib.listConfigurations();
+    var configs = configLib.listConfigurations();
     return {
         status: 200,
         body: JSON.stringify({
-            hits: configs.map(config => {
-                const name = config.name;
+            hits: configs.map(function (config) {
+                var name = config.name;
                 return {
                     id: name,
                     displayName: name.charAt(0).toUpperCase() + name.substring(1),
@@ -18,4 +18,4 @@ exports.get = function (request) {
         }),
         contentType: 'application/json'
     };
-}
+};
