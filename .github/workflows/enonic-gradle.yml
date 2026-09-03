@@ -24,6 +24,9 @@ jobs:
     if: needs.build.outputs.release == 'true'
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        
       - uses: enonic/release-tools/release@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
