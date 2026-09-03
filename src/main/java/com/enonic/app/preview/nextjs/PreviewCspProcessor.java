@@ -78,7 +78,7 @@ public class PreviewCspProcessor
         if ( !this.origins.isEmpty() )
         {
             final String[] sources = this.origins.toArray( String[]::new );
-            request.getContentSecurityPolicy().frameSrc( sources ).connectSrc( sources );
+            request.getContentSecurityPolicy().frameSrc( sources ).connectSrc( sources ).styleSrc( sources );
         }
         return response;
     }
