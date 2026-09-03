@@ -13,9 +13,6 @@ jobs:
         with:
           releaseBranch: |
             master
-            3.x
-            4.x
-            5.x
             6.x
           repoUser: ci
           repoPassword: ${{ secrets.ARTIFACTORY_PASSWORD }}
