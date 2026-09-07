@@ -1,7 +1,7 @@
 [versions]
 guava = "33.4.8-jre"
 junit5 = "5.13.4"
-mockito = "5.20.0"
+mockito = "5.23.0"
 assertj = "3.23.1"
 libHttpClient = "3.2.2"
 libCache = "2.2.1"
