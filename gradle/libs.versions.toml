@@ -4,7 +4,7 @@ junit5 = "5.13.4"
 mockito = "5.20.0"
 assertj = "3.23.1"
 libHttpClient = "3.2.2"
-libCache = "2.2.1"
+libCache = "3.0.0"
 commonsText = "1.14.0"
 
 [libraries]
