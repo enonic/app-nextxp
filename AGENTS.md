@@ -1,61 +1,97 @@
 # AGENTS.md
 
 Guidance for AI coding agents (Claude Code, Codex, Gemini CLI, Cursor, Copilot, Warp and others) working in this repository.
+`CLAUDE.md` includes this file.
 
 ## What This Is
 
-An Enonic XP Content Studio preview widget (`com.enonic.app.nextxp`) that enables editors to preview Next.js-rendered content. It fetches
-URL mappings dynamically from the Next.js server at `/api/mappings` (unlike its predecessor `app-liveview-next` which reads them from a
-`.cfg` config file).
+An Enonic XP app (`com.enonic.app.nextxp`, display name "Next.XP") that integrates Content Studio with a Next.js frontend. It does two
+things:
 
-## Build & Test
+1. **Preview widget** — renders Next.js pages inside Content Studio by resolving content to an external URL and appending an encrypted
+   `?xp=` payload. URL mappings are fetched from the Next.js server at `/api/mappings` (the predecessor
+   [app-liveview-iframe](https://github.com/enonic/app-liveview-iframe) reads them from a `.cfg` file).
+2. **Revalidation** — listens to XP content events and calls `<url>/api/revalidate` on the Next.js server when content is published, moved
+   or renamed.
+
+Requires Enonic XP 8.1+.
+
+## Build, Test, Deploy
 
 ```bash
-./gradlew build          # Build the app (produces build/libs/app-nextxp.jar)
-./gradlew test           # Run Java tests (JUnit 5 + Mockito)
-./gradlew clean build    # Full rebuild
+./gradlew build                                                        # produces build/libs/app-nextxp.jar
+./gradlew test                                                         # all Java tests (JUnit 5 + Mockito + AssertJ)
+./gradlew test --tests 'com.enonic.app.preview.nextjs.UrlMappingsResolverTest'   # one test class
+./gradlew test --tests '*UrlMappingsResolverTest.testQueryParamsMatch'           # one test method
+enonic project deploy                                                  # deploy to the Enonic CLI sandbox named in .enonic (site8)
 ```
 
-Requires: Java 17+, Gradle 9.4.1 (wrapper included). Uses Enonic XP plugin 4.0.0-A3 via `com.enonic.xp.settings` in `settings.gradle`.
-Dependencies are managed through `gradle/libs.versions.toml` (version catalog) and `xplibs.*` for XP platform libs.
+Gradle 9.4.1 via the wrapper. Enonic XP gradle plugin `com.enonic.xp.settings` 4.0.0-A3 (`settings.gradle`) provides the `xplibs.*`
+catalog; third-party versions live in `gradle/libs.versions.toml`. Dependencies resolve from `xp.enonicRepo('dev')`, so SNAPSHOT XP libs
+are expected. Only Java has tests; the JavaScript layer is untested.
 
 ## Architecture
 
-Two-layer design: **Java** for crypto and content-to-URL resolution, **JavaScript** for orchestration.
+Two layers: **Java** ScriptBeans for crypto, mapping resolution and debouncing; **JavaScript** (XP Nashorn-style, `require`/`exports`) for
+orchestration. JS calls Java via `__.newBean('com.enonic.app.preview.nextjs.<Class>')`.
 
-### Request Flow
+### Preview Request Flow
 
-1. `preview-next.js` (widget controller) receives request from Content Studio
-2. `config.js` reads `url` + `secret` from `.cfg` file, resolved via site's CustomSelector config name
-3. `mappings.js` fetches mappings from `<url>/api/mappings` (cached 24h via `lib-cache`)
-4. Java `UrlMappingsResolver` resolves content to an external URL using source matching + template substitution
-5. Java `PayloadEncoder` encrypts `{xpProject}` with AES-256-GCM
-6. Widget returns response with `?xp=<encrypted-blob>` appended to the resolved URL
+Widget descriptor `admin/extensions/preview-next/preview-next.yml` registers a `contentstudio.liveview` extension for all content types
+under a site. Content Studio calls `preview-next.js` with `contentId`, `contentPath`, `repo`, `branch`, `mode`, `archive`, `type`.
+
+1. `widget.js` validates params (missing `contentId`/`contentPath`/`repo` -> 400), then switches into the target repo/branch as
+   `role:system.admin` and loads the nearest site.
+2. `config.js` resolves `{url, secret}` for that site (see Configuration).
+3. `PayloadEncoder.encode()` encrypts `{"xpProject": "<project>"}` with the secret. Project name is the repo id minus `com.enonic.cms.`.
+4. `mappings.js` fetches `<url>/api/mappings?xp=<blob>`, caches per server URL for 24h via `lib-cache` (no invalidation other than app
+   restart), and normalises each mapping to `{baseUrl, secret, sources, target, matchAny}` for Java.
+5. `UrlMappingsResolver.resolve()` runs in an admin context, loads the content, computes the site-relative path and returns the first
+   matching mapping's URL: target template expanded with Apache Commons `StringSubstitutor`, resolved against `baseUrl`, normalised.
+6. `widget.js#buildNextUrl()` appends `?xp=<blob>` (or `&xp=` if the URL already has a query).
+7. Response: `mode=inline|edit` -> 200 JSON; otherwise a redirect. The URL is always also placed in the `enonic-widget-data` header.
+   418 means "cannot render" (no mapping matched, `base:shortcut`, or archived content). Mapping fetch failure -> 500.
+
+### Revalidation Flow
+
+`main.js` runs on app start and calls `lib/export/event.js#subscribe()`:
+
+- Queries all projects for `portal:site` nodes that have this app in `siteConfig` and keeps their repo ids in `REPOS`. Refreshed on any
+  `repository.*` event and when a site is pushed to `master`.
+- Listens to `node.*` events. Only the cluster leader (`lib-cluster`) handles them. For nodes under `/content/` in a tracked repo:
+  pushes to `master` trigger a debounced (500ms, Java `DebounceExecutor`) `GET <url>/api/revalidate?path=&xp=<blob>` with header
+  `Content-Studio-Project: <project>`. Moves/renames stash the old path so it is revalidated on the next `master` push.
 
 ### Java Layer (`src/main/java/com/enonic/app/preview/nextjs/`)
 
-- `PayloadEncoder` — AES-256-GCM encryption/decryption, SHA-256 key derivation
-- `UrlMappingsResolver` — resolves content ID to external URL via mapping rules (ScriptBean, called from JS)
-- `UrlMapping` — mapping rule: sources (match patterns) + target (URL template with `${field}` placeholders)
-- `ContentFieldAccessor` — implements `StringLookup` for Apache Commons `StringSubstitutor`; resolves content fields (`_id`, `_name`,
-  `_path`, `type`, `data.*`, `x.*`) and evaluates constraint expressions
-- `MatchStrategy` — `ANY` (first match wins) vs `ALL` (all must match)
-- `PreviewCspProcessor` — `AdminExtensionResponseProcessor` (OSGi component, requires XP ≥ 8.1) adding configured Next.js origins to the
-  Content Studio tool page's `frame-src`/`connect-src` CSP so the preview iframe can render them; falls back to `http://localhost:3000`
-  only when XP runs in dev mode — in prod, unconfigured means no CSP contribution
+- `PayloadEncoder` — AES-256-GCM, key = SHA-256(secret), output = base64url(IV[12] + ciphertext + tag), no padding. `decode()` mirrors it.
+- `UrlMappingsResolver` — ScriptBean; parses `{configName: {mappings: [...]}}`, picks the mapping list by the site's or project's
+  `configName`, falls back to `default`, then to a built-in `http://localhost:3000` + `${_path}` mapping.
+- `UrlMapping` — sources + target + `MatchStrategy` (`ANY` = first match wins, `ALL` = every non-blank source must match; empty sources
+  never match). `matchSource()` tries a content constraint first and falls back to a regex against the site-relative path.
+- `ContentFieldAccessor` — `StringLookup` for `StringSubstitutor` and constraint evaluator. Fields: `_id`, `_name`, `_path`, `type`,
+  `displayName`, `language`, `valid`, `data.<path>`, `x.<app>.<mixin>.<field>`, plus custom `siteRelativePath`. Missing values resolve to
+  `""` in templates.
+- `DebounceExecutor` — single daemon thread; each call cancels the previous pending task.
+- `PreviewCspProcessor` — OSGi `AdminExtensionResponseProcessor` bound to `com.enonic.app.nextxp:preview-next` and reading the same
+  `.cfg` as OSGi config (`configurationPid`). Adds every `nextjs.*.url` origin to `frame-src`/`connect-src`/`style-src`. In `RunMode.DEV`
+  with no config it allows `http://localhost:3000`; in prod, unconfigured means no CSP contribution. Package-private constructor takes a
+  `RunMode` for tests.
 
 ### JavaScript Layer (`src/main/resources/`)
 
-- `admin/extensions/preview-next/preview-next.js` — widget entry point
-- `lib/export/config.js` — parses `nextjs.<name>.(url|secret)` from app config, site-aware config resolution
-- `lib/export/mappings.js` — fetches from `/api/mappings`, caches with `lib-cache` (24h TTL), bridges API response to `UrlMappingsResolver`
-  format via `toResolverConfig()`
-- `lib/export/widget.js` — shared utilities (param validation, context switching, response builders, `buildNextUrl()`)
-- `services/configurations/configurations.js` — CustomSelector service listing available configs
+- `admin/extensions/preview-next/preview-next.js` — widget controller
+- `lib/export/widget.js` — param validation, admin-context switching (`switchContext`), response builders, `buildNextUrl()`,
+  `getProjectName()`
+- `lib/export/config.js` — parses `nextjs.<name>.(url|secret)` from `app.config` (cached in module scope), site-aware lookup
+- `lib/export/mappings.js` — fetch + cache + `toResolverConfig()`
+- `lib/export/event.js` — revalidation (see above)
+- `services/configurations/configurations.js` — CustomSelector service listing config names for the site form
+- `cms/cms.yml` — site form with a single optional `configName` CustomSelector; `cms/site.yml` marks the app as a site app
 
 ## Configuration
 
-Config file: `com.enonic.app.nextxp.cfg`
+`com.enonic.app.nextxp.cfg`:
 
 ```properties
 nextjs.default.url=http://localhost:3000
@@ -64,17 +100,32 @@ nextjs.production.url=https://my-nextjs-app.example.com
 nextjs.production.secret=prodSecret
 ```
 
-Sites select their config via a CustomSelector form field (`cms.yml` -> `configurations` service). Resolution: site config name -> named
-config -> `default` -> hardcoded `http://127.0.0.1:3000`.
+Resolution in `config.js`: site's `configName` -> named config -> `default` -> hardcoded
+`{url: http://localhost:3000, secret: mySecretKey}`.
+
+Non-obvious: `config.js` selects the config on the JS side and `preview-next.js` always hands the resolved mappings to Java under the
+`default` key. `UrlMappingsResolver` also looks up `configName` from site or **project** site configs, but with a single `default` entry
+that lookup always falls through to `default`. Effective config selection therefore happens in JS, and only from the site (not project).
 
 ## Mapping Source Format
 
-Sources mix content field constraints and path regex in a single list (parsed by `ContentFieldAccessor` and `UrlMapping.matchSource()`):
+`/api/mappings` returns `{mappings: [{sources: [...], target: "...", matchAny: bool}]}`. Sources mix content constraints and path regex:
 
-- Content constraints: `type:app:article`, `data.category:foo`, `_path:'/features/.*'`
-- Path regex: `/articles/.*`, `/products/p1\\?category=foo`
+- Content constraint: `<field>:<regex>`, e.g. `type:app:article`, `data.category:foo`, `_path:'/features/.*'` (single quotes stripped).
+  Parsed by `ContentFieldAccessor.parse()`; anything without a `:` is treated as a path regex.
+- Path regex: matched with `Pattern.matches()` against the **site-relative** path, e.g. `/articles/.*`, `/products/p1\\?category=foo`.
 
-## Design Docs
+Target templates use `${field}` with the same field names; a leading `/` is stripped in `toResolverConfig()` before resolving against
+`baseUrl`.
 
-- `docs/superpowers/specs/2026-04-09-preview-nextjs-design.md` — full spec
-- `docs/superpowers/plans/2026-04-09-preview-nextjs.md` — implementation plan
+## Testing Notes
+
+Tests mock XP services (`ContentService`, `ProjectService`) through a mocked `BeanContext` and call `initialize()` on the bean directly;
+mappings are passed as mocked `ScriptValue` trees. See `UrlMappingsResolverTest#createMappings()` for the canonical fixture covering
+`ANY`/`ALL`, constraints, regex with query strings, x-data and `siteRelativePath`.
+
+## Versioning & CI
+
+`master` is `6.0.0-SNAPSHOT` against `xpVersion=8.1.0-SNAPSHOT` (`gradle.properties`). Release branches `3.x`–`6.x` exist; CI
+(`.github/workflows/enonic-gradle.yml`) builds every push with `enonic/release-tools/build-and-publish` and creates a GitHub release when
+the build marks one. Dependabot covers gradle, npm and github-actions.
