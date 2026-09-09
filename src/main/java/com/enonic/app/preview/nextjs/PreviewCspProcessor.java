@@ -69,6 +69,11 @@ public class PreviewCspProcessor
             result.add( toOrigin( FALLBACK_URL ) );
         }
 
+        if ( !result.isEmpty() )
+        {
+            result.add( "'self'" );
+        }
+
         this.origins = List.copyOf( result );
     }
 
