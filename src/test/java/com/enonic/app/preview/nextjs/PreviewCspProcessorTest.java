@@ -50,6 +50,8 @@ public class PreviewCspProcessorTest
         assertTrue( frameSrc.contains( "http://localhost:3001" ) );
         assertTrue( connectSrc.contains( "https://site.example.com" ) );
         assertTrue( connectSrc.contains( "http://localhost:3001" ) );
+        assertTrue( frameSrc.contains( "'self'" ) );
+        assertTrue( connectSrc.contains( "'self'" ) );
     }
 
     @Test
@@ -59,7 +61,7 @@ public class PreviewCspProcessorTest
 
         processor.process( request, response );
 
-        assertEquals( List.of( "https://site.example.com:8443" ), directive( "frame-src" ) );
+        assertEquals( List.of( "https://site.example.com:8443", "'self'" ), directive( "frame-src" ) );
     }
 
     @Test
@@ -69,7 +71,7 @@ public class PreviewCspProcessorTest
 
         processor.process( request, response );
 
-        assertEquals( List.of( "https://site.example.com" ), directive( "frame-src" ) );
+        assertEquals( List.of( "https://site.example.com", "'self'" ), directive( "frame-src" ) );
     }
 
     @Test
@@ -79,8 +81,8 @@ public class PreviewCspProcessorTest
 
         processor.process( request, response );
 
-        assertEquals( List.of( "http://localhost:3000" ), directive( "frame-src" ) );
-        assertEquals( List.of( "http://localhost:3000" ), directive( "connect-src" ) );
+        assertEquals( List.of( "http://localhost:3000", "'self'" ), directive( "frame-src" ) );
+        assertEquals( List.of( "http://localhost:3000", "'self'" ), directive( "connect-src" ) );
     }
 
     @Test
@@ -113,8 +115,8 @@ public class PreviewCspProcessorTest
 
         processor.process( request, response );
 
-        assertEquals( List.of( "https://site.example.com" ), directive( "frame-src" ) );
-        assertEquals( List.of( "https://site.example.com" ), directive( "connect-src" ) );
+        assertEquals( List.of( "https://site.example.com", "'self'" ), directive( "frame-src" ) );
+        assertEquals( List.of( "https://site.example.com", "'self'" ), directive( "connect-src" ) );
     }
 
     @Test
@@ -125,7 +127,7 @@ public class PreviewCspProcessorTest
 
         processor.process( request, response );
 
-        assertEquals( List.of( "https://site.example.com" ), directive( "frame-src" ) );
+        assertEquals( List.of( "https://site.example.com", "'self'" ), directive( "frame-src" ) );
     }
 
     @Test
@@ -136,7 +138,7 @@ public class PreviewCspProcessorTest
 
         processor.process( request, response );
 
-        assertEquals( List.of( "https://site.example.com" ), directive( "frame-src" ) );
+        assertEquals( List.of( "https://site.example.com", "'self'" ), directive( "frame-src" ) );
     }
 
     @Test
