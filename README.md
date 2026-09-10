@@ -82,11 +82,15 @@ and [path regex](https://developer.enonic.com/docs/code/stable/web/sites/mapping
 - `${data.<field>}` — Content data fields (supports nested paths like `${data.product.category}`)
 - `${x.<app>.<mixin>.<field>}` — Extra data (x-data/mixin) fields
 
+The resolved URL never ends with a slash: `/no/${siteRelativePath}` yields `/no` for the site itself.
+
 ## How it works
 
 1. Content Studio calls the preview widget with content details
 2. The widget reads `url` + `secret` for the site's configured Next.js server
-3. URL mappings are fetched from `<url>/api/mappings` (cached for 24 hours, stop/start the app to clear it)
+3. URL mappings are fetched from `<url>/api/mappings?xp=<encrypted-blob>` (cached for 24 hours per XP project,
+   stop/start the app to clear it; failed fetches are not cached). The blob carries `xpProject`, so the endpoint may tailor mappings
+   per project, e.g. add a locale prefix
 4. Content is matched against mapping rules to resolve the target URL
 5. `{xpProject}` is encrypted with AES-256-GCM using the shared secret
 6. The resolved URL is returned with `?xp=<encrypted-blob>` appended

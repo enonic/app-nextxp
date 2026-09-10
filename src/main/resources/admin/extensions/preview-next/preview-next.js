@@ -19,17 +19,16 @@ exports.get = function (req) {
     const site = widgetLib.fetchSite(params.repository, params.branch, params.id, params.archive);
     const serverConfig = configLib.getServerConfig(site);
     const secret = serverConfig.secret;
+    const projectName = widgetLib.getProjectName(params.repository);
 
     let mappings;
     let encryptedPayload;
     if (secret) {
-        encryptedPayload = payloadEncoder.encode(JSON.stringify({
-            xpProject: widgetLib.getProjectName(params.repository),
-        }), secret);
+        encryptedPayload = payloadEncoder.encode(JSON.stringify({ xpProject: projectName }), secret);
     }
 
     try {
-        mappings = mappingsLib.getMappings(serverConfig.url, encryptedPayload);
+        mappings = mappingsLib.getMappings(serverConfig.url, projectName, encryptedPayload);
     } catch (e) {
         log.error('Next preview: failed to fetch mappings: ' + e.message);
         return widgetLib.widgetResponse(500);

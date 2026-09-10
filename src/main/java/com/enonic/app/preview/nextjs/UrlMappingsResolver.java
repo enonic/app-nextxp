@@ -146,7 +146,7 @@ final class MappingResolverCallable
             {
                 LOGGER.debug( "Matched {}", mapping );
                 final String uriPath = new StringSubstitutor( contentAccessor ).replace( mapping.getTarget() );
-                final String url = new URI( mapping.getBaseUrl() ).resolve( uriPath ).normalize().toString();
+                final String url = stripTrailingSlash( new URI( mapping.getBaseUrl() ).resolve( uriPath ).normalize().toString() );
 
                 final Map<String, String> result = new HashMap<>();
                 result.put( "url", url );
@@ -160,6 +160,11 @@ final class MappingResolverCallable
         }
 
         return null;
+    }
+
+    private static String stripTrailingSlash( final String url )
+    {
+        return url.length() > 1 && url.endsWith( "/" ) ? url.substring( 0, url.length() - 1 ) : url;
     }
 
     private List<UrlMapping> getMappingList( final Site nearestSite, final Map<String, List<UrlMapping>> mappingsMap )
