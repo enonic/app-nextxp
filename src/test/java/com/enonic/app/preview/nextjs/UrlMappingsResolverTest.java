@@ -164,7 +164,7 @@ public class UrlMappingsResolverTest
         Map<String, String> result = resolver.resolve( createParams( "content-id", "/site/products/p1" ), createMappings( "config1" ) );
 
         assertNotNull( result );
-        assertEquals( "http://localhost:8080/bar/foo/", result.get( "url" ) );
+        assertEquals( "http://localhost:8080/bar/foo", result.get( "url" ) );
         assertEquals( "http://localhost:8080", result.get( "baseUrl" ) );
     }
 
@@ -183,7 +183,7 @@ public class UrlMappingsResolverTest
             resolver.resolve( createParams( "content-id", "/site/products/p1?category=foo&key=123" ), createMappings( "default" ) );
 
         assertNotNull( result );
-        assertEquals( "http://localhost:8080/qux/x-data-value/", result.get( "url" ) );
+        assertEquals( "http://localhost:8080/qux/x-data-value", result.get( "url" ) );
         assertEquals( "http://localhost:8080", result.get( "baseUrl" ) );
     }
 
@@ -238,7 +238,7 @@ public class UrlMappingsResolverTest
         Map<String, String> result = resolver.resolve( createParams( "content-id", "/site" ), createMappings( "default" ) );
 
         assertNotNull( result );
-        assertEquals( "http://localhost:8080/rel/", result.get( "url" ) );
+        assertEquals( "http://localhost:8080/rel", result.get( "url" ) );
     }
 
     @Test
@@ -250,6 +250,43 @@ public class UrlMappingsResolverTest
 
         assertNotNull( result );
         assertEquals( "http://localhost:8080/rel/site/content", result.get( "url" ) );
+    }
+
+    @Test
+    public void testTrailingSlashStrippedDownToBaseUrl()
+    {
+        when( contentService.getById( ContentId.from( "content-id" ) ) ).thenReturn( site );
+
+        Map<String, String> result =
+            resolver.resolve( createParams( "content-id", "/site" ), createSingleMapping( "/", "${siteRelativePath}" ) );
+
+        assertNotNull( result );
+        assertEquals( "http://localhost:8080", result.get( "url" ) );
+    }
+
+    private ScriptValue createSingleMapping( final String source, final String target )
+    {
+        final ScriptValue mapping = mock( ScriptValue.class );
+        when( mapping.isObject() ).thenReturn( true );
+        when( mapping.getMap() ).thenReturn( Map.of(
+            UrlMapping.SOURCES_KEY, List.of( source ),
+            UrlMapping.TARGET_KEY, target,
+            UrlMapping.BASE_URL_KEY, "http://localhost:8080"
+        ) );
+
+        final ScriptValue list = mock( ScriptValue.class );
+        when( list.isArray() ).thenReturn( true );
+        when( list.getArray() ).thenReturn( List.of( mapping ) );
+
+        final ScriptValue config = mock( ScriptValue.class );
+        when( config.isObject() ).thenReturn( true );
+        when( config.getMember( "mappings" ) ).thenReturn( list );
+
+        final ScriptValue result = mock( ScriptValue.class );
+        when( result.isObject() ).thenReturn( true );
+        when( result.getKeys() ).thenReturn( Set.of( "default" ) );
+        when( result.getMember( "default" ) ).thenReturn( config );
+        return result;
     }
 
     private Map<String, Object> createParams()

@@ -26,6 +26,10 @@ Requires Enonic XP 8.1+.
 enonic project deploy                                                  # deploy to the Enonic CLI sandbox named in .enonic (site8)
 ```
 
+`enonic project deploy` refuses sandboxes older than `xpVersion` (8.1.0-SNAPSHOT); against a source-built XP copy `build/libs/*.jar`
+into `$XP_HOME/deploy/` instead. The `com.enonic.xp.admin.extension` import is optional, so the jar also resolves on XP 8.0.x with the
+CSP processor inactive.
+
 Gradle 9.4.1 via the wrapper. Enonic XP gradle plugin `com.enonic.xp.settings` 4.0.0-A3 (`settings.gradle`) provides the `xplibs.*`
 catalog; third-party versions live in `gradle/libs.versions.toml`. Dependencies resolve from `xp.enonicRepo('dev')`, so SNAPSHOT XP libs
 are expected. Only Java has tests; the JavaScript layer is untested.
@@ -44,13 +48,17 @@ under a site. Content Studio calls `preview-next.js` with `contentId`, `contentP
    `role:system.admin` and loads the nearest site.
 2. `config.js` resolves `{url, secret}` for that site (see Configuration).
 3. `PayloadEncoder.encode()` encrypts `{"xpProject": "<project>"}` with the secret. Project name is the repo id minus `com.enonic.cms.`.
-4. `mappings.js` fetches `<url>/api/mappings?xp=<blob>`, caches per server URL for 24h via `lib-cache` (no invalidation other than app
-   restart), and normalises each mapping to `{baseUrl, secret, sources, target, matchAny}` for Java.
+4. `mappings.js` fetches `<url>/api/mappings?xp=<blob>` and caches the result per XP project (a project maps to one Next.js server)
+   for 24h via `lib-cache`; failed fetches are not cached. The response may be project-specific (e.g. locale-prefixed targets). Each mapping
+   is normalised to `{baseUrl, secret, sources, target, matchAny}` for Java.
 5. `UrlMappingsResolver.resolve()` runs in an admin context, loads the content, computes the site-relative path and returns the first
-   matching mapping's URL: target template expanded with Apache Commons `StringSubstitutor`, resolved against `baseUrl`, normalised.
+   matching mapping's URL: target template expanded with Apache Commons `StringSubstitutor`, resolved against `baseUrl`, normalised, and
+   stripped of a trailing slash (so the site root maps to `/no`, not `/no/`).
 6. `widget.js#buildNextUrl()` appends `?xp=<blob>` (or `&xp=` if the URL already has a query).
 7. Response: `mode=inline|edit` -> 200 JSON; otherwise a redirect. The URL is always also placed in the `enonic-widget-data` header.
-   418 means "cannot render" (no mapping matched, `base:shortcut`, or archived content). Mapping fetch failure -> 500.
+   418 means "cannot render" (no mapping matched, `base:shortcut`, or archived content). A failed mappings fetch (network error, or a
+   404 from a Next.js server whose `ENONIC_MAPPINGS` lacks the project) resolves to no mappings and therefore 418; 500 only for
+   unexpected errors while switching context or building the URL.
 
 ### Revalidation Flow
 
@@ -74,7 +82,8 @@ under a site. Content Studio calls `preview-next.js` with `contentId`, `contentP
   `""` in templates.
 - `DebounceExecutor` — single daemon thread; each call cancels the previous pending task.
 - `PreviewCspProcessor` — OSGi `AdminExtensionResponseProcessor` bound to `com.enonic.app.nextxp:preview-next` and reading the same
-  `.cfg` as OSGi config (`configurationPid`). Adds every `nextjs.*.url` origin to `frame-src`/`connect-src`/`style-src`. In `RunMode.DEV`
+  `.cfg` as OSGi config (`configurationPid`). Adds every `nextjs.*.url` origin plus `'self'` to `frame-src`/`connect-src`/`style-src`. In
+  `RunMode.DEV`
   with no config it allows `http://localhost:3000`; in prod, unconfigured means no CSP contribution. Package-private constructor takes a
   `RunMode` for tests.
 
@@ -117,6 +126,12 @@ that lookup always falls through to `default`. Effective config selection theref
 
 Target templates use `${field}` with the same field names; a leading `/` is stripped in `toResolverConfig()` before resolving against
 `baseUrl`.
+
+The reference Next.js side (`nextxp-demo`, adapter `localizeMappings()`) prefixes targets with the locale of the project carried in the
+blob unless it is the default locale, e.g. `/no/${siteRelativePath}`, and answers 404 for a project missing from its `ENONIC_MAPPINGS`,
+which this widget turns into
+
+418.
 
 ## Testing Notes
 
