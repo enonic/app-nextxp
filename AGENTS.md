@@ -129,9 +129,9 @@ Target templates use `${field}` with the same field names; a leading `/` is stri
 
 The reference Next.js side (`nextxp-demo`, adapter `localizeMappings()`) prefixes targets with the locale of the project carried in the
 blob unless it is the default locale, e.g. `/no/${siteRelativePath}`, and answers 404 for a project missing from its `ENONIC_MAPPINGS`,
-which this widget turns into
-
-418.
+which this widget turns into 418. Its proxy validates the `?xp=` blob, enables draft mode via `/api/preview` unless a draft cookie from the
+current
+build is present, and redirects to the URL without it; the XP side is unaffected.
 
 ## Testing Notes
 

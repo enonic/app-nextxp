@@ -14,31 +14,26 @@ function fetchMappings(serverUrl, encryptedPayload) {
     if (encryptedPayload) {
         url += '?xp=' + encryptedPayload;
     }
-    let mappings;
-    try {
-        const response = httpClient.request({
-            url: url,
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-            },
-            connectionTimeout: 5000,
-            readTimeout: 10000,
-        });
+    const response = httpClient.request({
+        url: url,
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+        },
+        connectionTimeout: 5000,
+        readTimeout: 10000,
+    });
 
-        if (response.status !== 200) {
-            throw new Error(`[${response.status}] ${response.statusText}`);
-        }
-
-        mappings = JSON.parse(response.body).mappings || [];
-        log.debug(`Fetched mappings from "${url}":\n${JSON.stringify(mappings, null, 2)}`);
-    } catch (e) {
-        log.error(`Error fetching mappings from "${url}": ${e}`);
+    if (response.status !== 200) {
+        throw new Error(`[${response.status}] ${response.statusText}`);
     }
-    return mappings || [];
+
+    const mappings = JSON.parse(response.body).mappings || [];
+    log.debug(`Fetched mappings from "${url}":\n${JSON.stringify(mappings, null, 2)}`);
+    return mappings;
 }
 
-// Cached per XP project (a project maps to one Next.js server), failures are not cached
+// Cached per XP project (a project maps to one Next.js server); a throwing loader is not cached by lib-cache
 function getMappings(serverUrl, projectName, encryptedPayload) {
     var normalizedUrl = serverUrl.replace(TRAIL_SLASH_REGEX, '');
     try {
