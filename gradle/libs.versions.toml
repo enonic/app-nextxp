@@ -5,7 +5,7 @@ mockito = "5.24.0"
 assertj = "3.27.7"
 libHttpClient = "4.0.0"
 libCache = "3.0.0"
-commonsText = "1.14.0"
+commonsText = "1.15.0"
 
 [libraries]
 guava-guava = { module = "com.google.guava:guava", version.ref = "guava" }
