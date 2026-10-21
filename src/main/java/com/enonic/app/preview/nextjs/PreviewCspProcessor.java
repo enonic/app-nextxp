@@ -15,9 +15,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.enonic.xp.admin.extension.AdminExtensionResponseProcessor;
+import com.enonic.xp.context.ContextAccessor;
 import com.enonic.xp.portal.PortalRequest;
 import com.enonic.xp.portal.PortalResponse;
 import com.enonic.xp.server.RunMode;
+import com.enonic.xp.util.GenericValue;
 
 @Component(immediate = true, configurationPid = "com.enonic.app.nextxp",
     property = "key=com.enonic.app.nextxp:preview-next")
@@ -29,6 +31,8 @@ public class PreviewCspProcessor
     private static final Pattern URL_CONFIG_KEY = Pattern.compile( "^nextjs\\.[^.]+\\.url$", Pattern.CASE_INSENSITIVE );
 
     private static final String FALLBACK_URL = "http://localhost:3000";
+
+    private static final String CSP_ENABLED_ATTRIBUTE = "custom.com.enonic.app.contentstudio.csp.enabled";
 
     private final RunMode runMode;
 
@@ -75,6 +79,12 @@ public class PreviewCspProcessor
     @Override
     public PortalResponse process( final PortalRequest request, final PortalResponse response )
     {
+        // An absent flag (older Content Studio) is not an explicit opt-out.
+        if ( GenericValue.booleanValue( false ).equals( ContextAccessor.current().getLocalScope().getAttribute( CSP_ENABLED_ATTRIBUTE ) ) )
+        {
+            return response;
+        }
+
         if ( !this.origins.isEmpty() )
         {
             final String[] sources = this.origins.toArray( String[]::new );
