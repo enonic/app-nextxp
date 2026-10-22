@@ -31,6 +31,13 @@ configuration is used.
 
 NOTE: If no configuration is provided, the app defaults to `url=http://127.0.0.1:3000` with `mySecretKey` secret.
 
+### Content Studio CSP
+
+The preview widget contributes Next.js origins to Content Studio's `frame-src`, `connect-src` and `style-src` directives.
+When Content Studio publishes `com.enonic.app.contentstudio.csp.enabled=false` through the Context API, the widget leaves CSP
+unchanged. This honors `contentSecurityPolicy.enabled=false` in Content Studio's configuration. With older Content Studio versions
+that do not publish the flag, the widget continues contributing its CSP directives as before.
+
 ### Next.js side
 
 The Next.js server must expose a `GET /api/mappings` endpoint that returns URL mapping rules:
