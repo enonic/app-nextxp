@@ -6,9 +6,12 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.enonic.xp.context.Context;
+import com.enonic.xp.context.ContextBuilder;
 import com.enonic.xp.portal.PortalRequest;
 import com.enonic.xp.portal.PortalResponse;
 import com.enonic.xp.server.RunMode;
+import com.enonic.xp.util.GenericValue;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -137,6 +140,57 @@ public class PreviewCspProcessorTest
         processor.process( request, response );
 
         assertEquals( List.of( "https://site.example.com" ), directive( "frame-src" ) );
+    }
+
+    @Test
+    public void testDisabledCspContributesNothingWithConfiguredOrigins()
+    {
+        processor.activate( Map.of( "nextjs.default.url", "https://site.example.com" ) );
+
+        withCspEnabled( false, () -> assertSame( response, processor.process( request, response ) ) );
+
+        assertEquals( "", request.getContentSecurityPolicy().serialize() );
+    }
+
+    @Test
+    public void testDisabledCspContributesNothingWithDevFallback()
+    {
+        processor.activate( Map.of() );
+
+        withCspEnabled( false, () -> processor.process( request, response ) );
+
+        assertEquals( "", request.getContentSecurityPolicy().serialize() );
+    }
+
+    @Test
+    public void testDisabledCspPreservesExistingPolicy()
+    {
+        processor.activate( Map.of( "nextjs.default.url", "https://site.example.com" ) );
+        request.getContentSecurityPolicy().frameSrc( "'self'" ).connectSrc( "'self'" ).styleSrc( "'self'" );
+        final String originalPolicy = request.getContentSecurityPolicy().serialize();
+
+        withCspEnabled( false, () -> processor.process( request, response ) );
+
+        assertEquals( originalPolicy, request.getContentSecurityPolicy().serialize() );
+    }
+
+    @Test
+    public void testEnabledCspContributesConfiguredOrigins()
+    {
+        processor.activate( Map.of( "nextjs.default.url", "https://site.example.com" ) );
+
+        withCspEnabled( true, () -> processor.process( request, response ) );
+
+        assertEquals( List.of( "https://site.example.com" ), directive( "frame-src" ) );
+        assertEquals( List.of( "https://site.example.com" ), directive( "connect-src" ) );
+        assertEquals( List.of( "https://site.example.com" ), directive( "style-src" ) );
+    }
+
+    private void withCspEnabled( final boolean enabled, final Runnable runnable )
+    {
+        final Context context = ContextBuilder.create().build();
+        context.getLocalScope().setAttribute( "custom.com.enonic.app.contentstudio.csp.enabled", GenericValue.booleanValue( enabled ) );
+        context.runWith( runnable );
     }
 
     @Test
