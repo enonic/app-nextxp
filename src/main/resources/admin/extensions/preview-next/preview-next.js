@@ -24,7 +24,11 @@ exports.get = function (req) {
     let mappings;
     let encryptedPayload;
     if (secret) {
-        encryptedPayload = payloadEncoder.encode(JSON.stringify({ xpProject: projectName }), secret);
+        encryptedPayload = payloadEncoder.encode(JSON.stringify({
+            xpProject: projectName,
+            JSESSIONID: req.cookies && req.cookies.JSESSIONID || '',
+            issuedAt: Date.now(),
+        }), secret);
     }
 
     try {
