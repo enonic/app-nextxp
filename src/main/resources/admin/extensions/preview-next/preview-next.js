@@ -21,7 +21,6 @@ exports.get = function (req) {
     const secret = serverConfig.secret;
     const projectName = widgetLib.getProjectName(params.repository);
 
-    let mappings;
     let encryptedPayload;
     if (secret) {
         encryptedPayload = payloadEncoder.encode(JSON.stringify({
@@ -31,11 +30,11 @@ exports.get = function (req) {
         }), secret);
     }
 
-    try {
-        mappings = mappingsLib.getMappings(serverConfig.url, projectName, encryptedPayload);
-    } catch (e) {
-        log.error('Next preview: failed to fetch mappings: ' + e.message);
-        return widgetLib.widgetResponse(500);
+    const mappings = mappingsLib.getMappings(serverConfig.url, projectName, encryptedPayload);
+
+    if (mappings.length === 0) {
+        log.debug('Next preview [' + req.method + '] can\'t render: no mappings available');
+        return widgetLib.widgetResponse(418);
     }
 
     const resolverMappings = mappingsLib.toResolverConfig(serverConfig, mappings);

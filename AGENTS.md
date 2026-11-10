@@ -21,6 +21,7 @@ Requires Enonic XP 8.1+.
 ```bash
 ./gradlew build                                                        # produces build/libs/app-nextxp.jar
 ./gradlew test                                                         # all Java tests (JUnit 5 + Mockito + AssertJ)
+node --test src/test/js/*.test.cjs                                      # JavaScript mappings tests (Node.js 18+)
 ./gradlew test --tests 'com.enonic.app.preview.nextjs.UrlMappingsResolverTest'   # one test class
 ./gradlew test --tests '*UrlMappingsResolverTest.testQueryParamsMatch'           # one test method
 enonic project deploy                                                  # deploy to the Enonic CLI sandbox named in .enonic (site8)
@@ -32,7 +33,7 @@ CSP processor inactive.
 
 Gradle 9.4.1 via the wrapper. Enonic XP gradle plugin `com.enonic.xp.settings` 4.0.0-A3 (`settings.gradle`) provides the `xplibs.*`
 catalog; third-party versions live in `gradle/libs.versions.toml`. Dependencies resolve from `xp.enonicRepo('dev')`, so SNAPSHOT XP libs
-are expected. Only Java has tests; the JavaScript layer is untested.
+are expected. JavaScript mappings tests use Node.js's built-in test runner with mocked XP libraries; run them separately from Gradle.
 
 ## Architecture
 
