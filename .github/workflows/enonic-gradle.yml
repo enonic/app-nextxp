@@ -13,6 +13,9 @@ jobs:
         with:
           releaseBranch: |
             master
+            3.x
+            4.x
+            5.x
             6.x
           repoUser: ci
           repoPassword: ${{ secrets.ARTIFACTORY_PASSWORD }}
@@ -24,9 +27,6 @@ jobs:
     if: needs.build.outputs.release == 'true'
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        
       - uses: enonic/release-tools/release@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
