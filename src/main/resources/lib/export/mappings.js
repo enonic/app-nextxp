@@ -28,12 +28,16 @@ function fetchMappings(serverUrl, encryptedPayload) {
         throw new Error(`[${response.status}] ${response.statusText}`);
     }
 
-    const mappings = JSON.parse(response.body).mappings || [];
+    const mappings = JSON.parse(response.body).mappings;
+    if (!Array.isArray(mappings) || mappings.length === 0) {
+        throw new Error('Frontend returned no mappings');
+    }
     log.debug(`Fetched mappings from "${url}":\n${JSON.stringify(mappings, null, 2)}`);
     return mappings;
 }
 
-// Cached per XP project (a project maps to one Next.js server); a throwing loader is not cached by lib-cache
+// Cached per XP project (a project maps to one Next.js server)
+// A throwing loader is not cached by lib-cache
 function getMappings(serverUrl, projectName, encryptedPayload) {
     var normalizedUrl = serverUrl.replace(TRAIL_SLASH_REGEX, '');
     try {
