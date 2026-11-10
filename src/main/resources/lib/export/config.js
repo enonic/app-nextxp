@@ -27,8 +27,8 @@ function readConfigurations(force) {
     return CONFIGURATIONS;
 }
 
-function getServerConfig(site) {
-    var configName = getConfigNameFromSite(site);
+function getServerConfig(site, project) {
+    var configName = getConfigNameFromSite(site, project);
     var configs = readConfigurations();
     var config = configs[configName] || configs['default'];
     if (!config) {
@@ -47,8 +47,9 @@ function forceArray(value) {
     return Array.isArray(value) ? value : [value];
 }
 
-function getConfigNameFromSite(site) {
-    var siteConfigs = forceArray(site && site.data && site.data.siteConfig);
+function getConfigNameFromSite(site, project) {
+    var siteConfigs = forceArray(site && site.data && site.data.siteConfig)
+        .concat(forceArray(project && project.siteConfig));
     if (!siteConfigs.length) {
         return 'default';
     }

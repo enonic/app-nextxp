@@ -115,7 +115,8 @@ Resolution in `config.js`: site's `configName` -> named config -> `default` -> h
 
 Non-obvious: `config.js` selects the config on the JS side and `preview-next.js` always hands the resolved mappings to Java under the
 `default` key. `UrlMappingsResolver` also looks up `configName` from site or **project** site configs, but with a single `default` entry
-that lookup always falls through to `default`. Effective config selection therefore happens in JS, and only from the site (not project).
+that lookup always falls through to `default`. Effective config selection therefore happens in JS: the site's app config takes precedence,
+with the project's `siteConfig` as fallback both inside and outside sites. Preview returns 418 unless this app is configured at either level.
 
 ## Mapping Source Format
 
