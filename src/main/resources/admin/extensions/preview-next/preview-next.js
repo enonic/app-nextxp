@@ -1,5 +1,6 @@
 /*global app, resolve, require*/
 
+const projectLib = require('/lib/xp/project');
 const widgetLib = require('/lib/export/widget');
 const configLib = require('/lib/export/config');
 const mappingsLib = require('/lib/export/mappings');
@@ -17,9 +18,16 @@ exports.get = function (req) {
     }
 
     const site = widgetLib.fetchSite(params.repository, params.branch, params.id, params.archive);
-    const serverConfig = configLib.getServerConfig(site);
-    const secret = serverConfig.secret;
+    const hasSiteConfig = hasAppConfig(site && site.data && site.data.siteConfig);
     const projectName = widgetLib.getProjectName(params.repository);
+    const project = hasSiteConfig ? null : projectLib.get({id: projectName});
+    if (!hasSiteConfig && !hasAppConfig(project && project.siteConfig)) {
+        log.debug('Next preview [' + req.method + '] can\'t render: application not added to site or project');
+        return widgetLib.widgetResponse(418);
+    }
+
+    const serverConfig = configLib.getServerConfig(site, project);
+    const secret = serverConfig.secret;
 
     let encryptedPayload;
     if (secret) {
@@ -71,6 +79,15 @@ exports.get = function (req) {
         return widgetLib.widgetResponse(500);
     }
 };
+
+function hasAppConfig(configs) {
+    if (!configs) {
+        return false;
+    }
+    return (Array.isArray(configs) ? configs : [configs]).some(function (config) {
+        return config.applicationKey === app.name;
+    });
+}
 
 exports.canRender = function (params, mapping) {
     if (!mapping) {
