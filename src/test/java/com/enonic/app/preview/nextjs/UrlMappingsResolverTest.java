@@ -264,6 +264,73 @@ public class UrlMappingsResolverTest
         assertEquals( "http://localhost:8080", result.get( "url" ) );
     }
 
+    @Test
+    public void testSpaceInPathIsEncoded()
+    {
+        when( content.getName() ).thenReturn( ContentName.from( "test test" ) );
+        when( content.getPath() ).thenReturn( ContentPath.from( "/site/test test" ) );
+
+        Map<String, String> result =
+            resolver.resolve( createParams( "content-id", "/site/test test" ), createSingleMapping( "/.*", "${siteRelativePath}" ) );
+
+        assertNotNull( result );
+        assertEquals( "http://localhost:8080/test%20test", result.get( "url" ) );
+    }
+
+    @Test
+    public void testPercentAndNonAsciiCharactersInPathAreEncoded()
+    {
+        when( content.getPath() ).thenReturn( ContentPath.from( "/site/folder/50% blåbær" ) );
+
+        Map<String, String> result = resolver.resolve( createParams( "content-id", "/site/folder/50% blåbær" ),
+                                                       createSingleMapping( "/.*", "/no${siteRelativePath}" ) );
+
+        assertNotNull( result );
+        assertEquals( "http://localhost:8080/no/folder/50%25%20bl%C3%A5b%C3%A6r", result.get( "url" ) );
+    }
+
+    @Test
+    public void testDisplayNameWithSpacesAndReservedCharactersIsEncoded()
+    {
+        when( content.getDisplayName() ).thenReturn( "Hvem er vi? #1" );
+
+        Map<String, String> result = resolver.resolve( createParams(), createSingleMapping( "/.*", "/by-name/${displayName}" ) );
+
+        assertNotNull( result );
+        assertEquals( "http://localhost:8080/by-name/Hvem%20er%20vi%3F%20%231", result.get( "url" ) );
+    }
+
+    @Test
+    public void testLegalPathCharactersInValueAreKept()
+    {
+        when( content.getDisplayName() ).thenReturn( "a-b_c.d~e/f@g!$&'()*+,;=" );
+
+        Map<String, String> result = resolver.resolve( createParams(), createSingleMapping( "/.*", "/by-name/${displayName}" ) );
+
+        assertNotNull( result );
+        assertEquals( "http://localhost:8080/by-name/a-b_c.d~e/f@g!$&'()*+,;=", result.get( "url" ) );
+    }
+
+    @Test
+    public void testColonAtStartOfTargetIsNotReadAsScheme()
+    {
+        Map<String, String> result = resolver.resolve( createParams(), createSingleMapping( "/.*", "${type}/${_name}" ) );
+
+        assertNotNull( result );
+        assertEquals( "http://localhost:8080/app%3Aarticle/content-name", result.get( "url" ) );
+    }
+
+    @Test
+    public void testColonInValueIsEncoded()
+    {
+        when( content.getDisplayName() ).thenReturn( "Kl. 10:00" );
+
+        Map<String, String> result = resolver.resolve( createParams(), createSingleMapping( "/.*", "${displayName}" ) );
+
+        assertNotNull( result );
+        assertEquals( "http://localhost:8080/Kl.%2010%3A00", result.get( "url" ) );
+    }
+
     private ScriptValue createSingleMapping( final String source, final String target )
     {
         final ScriptValue mapping = mock( ScriptValue.class );

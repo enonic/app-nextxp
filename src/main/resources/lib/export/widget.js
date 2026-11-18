@@ -39,9 +39,10 @@ function widgetResponse(status, data) {
     return response;
 }
 
+// The url is already percent-encoded by UrlMappingsResolver, so it must not be encoded again here
 function redirectResponse(url, data) {
     const response = {
-        redirect: encodeURI(url),
+        redirect: url,
         contentType: 'text/html',
     };
 

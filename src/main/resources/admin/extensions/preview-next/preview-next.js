@@ -50,16 +50,15 @@ exports.get = function (req) {
     const configs = {};
     configs['default'] = { mappings: resolverMappings };
 
-    const result = mappingsResolver.resolve(params, __.toScriptValue(configs));
-    const mappingUrl = result ? result.url : null;
-
-
-    if (!exports.canRender(params, mappingUrl)) {
-        log.debug('Next preview [' + req.method + '] can\'t render: 418');
-        return widgetLib.widgetResponse(418);
-    }
-
     try {
+        const result = mappingsResolver.resolve(params, __.toScriptValue(configs));
+        const mappingUrl = result ? result.url : null;
+
+        if (!exports.canRender(params, mappingUrl)) {
+            log.debug('Next preview [' + req.method + '] can\'t render: 418');
+            return widgetLib.widgetResponse(418);
+        }
+
         const nextUrl = widgetLib.buildNextUrl(mappingUrl, encryptedPayload);
 
         const data = {
