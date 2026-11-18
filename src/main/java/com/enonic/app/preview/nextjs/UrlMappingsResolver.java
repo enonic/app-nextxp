@@ -13,6 +13,9 @@ import org.apache.commons.text.StringSubstitutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.escape.Escaper;
+import com.google.common.net.PercentEscaper;
+
 import com.enonic.xp.app.ApplicationKey;
 import com.enonic.xp.content.Content;
 import com.enonic.xp.content.ContentId;
@@ -109,6 +112,10 @@ final class MappingResolverCallable
 
     private final UrlMapping DEFAULT_MAPPING = new UrlMapping( "http://localhost:3000", List.of( "/.*" ), "${_path}" );
 
+    // RFC 3986 path characters minus ':', plus '/' so content paths keep their segments. ':' is encoded because the target's
+    // leading '/' is stripped, so a value like "portal:site" at the start of the target would otherwise be read as a URI scheme.
+    private static final Escaper PATH_ESCAPER = new PercentEscaper( "-._~!$&'()*+,;=@/", false );
+
     public MappingResolverCallable( final Map<String, Object> params,
                                     final Map<String, List<UrlMapping>> mappingsMap,
                                     final ApplicationKey appKey,
@@ -145,8 +152,12 @@ final class MappingResolverCallable
             if ( mapping.matches( siteRelativePath, contentAccessor ) )
             {
                 LOGGER.debug( "Matched {}", mapping );
-                final String uriPath = new StringSubstitutor( contentAccessor ).replace( mapping.getTarget() );
-                final String url = stripTrailingSlash( new URI( mapping.getBaseUrl() ).resolve( uriPath ).normalize().toString() );
+                // Content names, display names and data values may hold spaces, '?', '#', '%', ':' or non-ASCII letters,
+                // so each value is percent-encoded before it becomes part of the URL path.
+                final String uriPath =
+                    new StringSubstitutor( key -> PATH_ESCAPER.escape( contentAccessor.lookup( key ) ) ).replace( mapping.getTarget() );
+                final String url =
+                    stripTrailingSlash( new URI( mapping.getBaseUrl() ).resolve( uriPath ).normalize().toASCIIString() );
 
                 final Map<String, String> result = new HashMap<>();
                 result.put( "url", url );

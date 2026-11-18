@@ -92,3 +92,46 @@ for (const [name, site] of sitesWithoutApp) {
         assert.deepEqual(context.exports.get({method: 'GET', params: {}}), {status: 418});
     });
 }
+
+test('returns 500 when the resolver throws', () => {
+    const params = {repository: 'com.enonic.cms.project', branch: 'draft', id: 'content-id', mode: 'edit'};
+    const errors = [];
+    const context = {
+        exports: {},
+        app: {name: 'com.enonic.app.nextxp'},
+        log: {debug() {}, error(message) { errors.push(message); }},
+        __: {
+            newBean() {
+                return {resolve() { throw new Error('Illegal character in path'); }};
+            },
+            toScriptValue(value) { return value; },
+        },
+        require(name) {
+            switch (name) {
+                case '/lib/xp/project':
+                    return {get() { return null; }};
+                case '/lib/export/widget':
+                    return {
+                        validateParams() { return params; },
+                        fetchSite() { return {data: {siteConfig: {applicationKey: 'com.enonic.app.nextxp'}}}; },
+                        getProjectName() { return 'project'; },
+                        widgetResponse(status) { return {status}; },
+                    };
+                case '/lib/export/config':
+                    return {getServerConfig() { return {url: 'http://localhost:3000'}; }};
+                case '/lib/export/mappings':
+                    return {
+                        getMappings() { return [{sources: ['/.*'], target: '${siteRelativePath}'}]; },
+                        toResolverConfig(serverConfig, mappings) { return mappings; },
+                    };
+                default:
+                    throw new Error('Unexpected module: ' + name);
+            }
+        },
+    };
+    vm.runInNewContext(source, context);
+
+    assert.deepEqual(context.exports.get({method: 'GET', params: {}}), {status: 500});
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /Illegal character in path/);
+});
