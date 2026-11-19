@@ -168,11 +168,12 @@ function isSitePublished(type, node) {
 
 function getSite(pathOrId, repoId) {
     var context = contextLib.get();
-    if (context.repository !== repoId) {
+    if (context.repository !== repoId || context.branch !== 'master') {
         try {
             return contextLib.run({
                 principals: ['role:system.admin'],
                 repository: repoId,
+                branch: 'master',
             }, function () {
                 return contentLib.getSite({ key: pathOrId || '/' });
             });
