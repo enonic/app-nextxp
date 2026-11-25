@@ -84,7 +84,7 @@ function hasAppConfig(configs) {
         return false;
     }
     return (Array.isArray(configs) ? configs : [configs]).some(function (config) {
-        return config.applicationKey === app.name;
+        return config && config.applicationKey === app.name;
     });
 }
 
