@@ -1,3 +1,6 @@
+var contentLib = require('/lib/xp/content');
+var contextLib = require('/lib/xp/context');
+
 var CONFIG_REGEX = new RegExp('^nextjs\\.([^.]+)\\.(url|secret)$', 'i');
 
 var CONFIGURATIONS;
@@ -56,12 +59,31 @@ function getConfigNameFromSite(site, project) {
 
     for (var i = 0; i < siteConfigs.length; i++) {
         var datum = siteConfigs[i];
-        if (datum.applicationKey === app.name) {
+        if (datum && datum.applicationKey === app.name) {
             return (datum.config && datum.config.configName) || 'default';
         }
     }
 
     return 'default';
+}
+
+function getSite(pathOrId, repoId, branch) {
+    var context = contextLib.get();
+    if (context.repository !== repoId || (branch && context.branch !== branch)) {
+        try {
+            return contextLib.run({
+                principals: ['role:system.admin'],
+                repository: repoId,
+                branch: branch,
+            }, function () {
+                return contentLib.getSite({ key: pathOrId || '/' });
+            });
+        } catch (e) {
+            log.error('Failed to get site config: ' + e.message);
+        }
+    } else {
+        return contentLib.getSite({ key: pathOrId || '/' });
+    }
 }
 
 function listConfigurations() {
@@ -74,3 +96,4 @@ function listConfigurations() {
 exports.readConfigurations = readConfigurations;
 exports.getServerConfig = getServerConfig;
 exports.listConfigurations = listConfigurations;
+exports.getSite = getSite;

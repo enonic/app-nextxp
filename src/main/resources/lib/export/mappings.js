@@ -32,20 +32,27 @@ function fetchMappings(serverUrl, encryptedPayload) {
     if (!Array.isArray(mappings) || mappings.length === 0) {
         throw new Error('Frontend returned no mappings');
     }
-    log.debug(`Fetched mappings from "${url}":\n${JSON.stringify(mappings, null, 2)}`);
+    if (mappings.some(mapping => !mapping || typeof mapping !== 'object' ||
+        (mapping.target != null && typeof mapping.target !== 'string'))) {
+        throw new Error('Frontend returned an invalid mapping');
+    }
+    log.debug(`Fetched mappings from "${serverUrl}":\n${JSON.stringify(mappings, null, 2)}`);
     return mappings;
 }
 
-// Cached per XP project (a project maps to one Next.js server)
+// Sites in one project can select different frontends.
 // A throwing loader is not cached by lib-cache
 function getMappings(serverUrl, projectName, encryptedPayload) {
+    if (!serverUrl) {
+        return [];
+    }
     var normalizedUrl = serverUrl.replace(TRAIL_SLASH_REGEX, '');
     try {
-        return mappingsCache.get(projectName, function () {
+        return mappingsCache.get(JSON.stringify([projectName, normalizedUrl]), function () {
             return fetchMappings(normalizedUrl, encryptedPayload);
         });
     } catch (e) {
-        log.error(`Error fetching mappings from "${normalizedUrl}": ${e.message || e}`);
+        log.error(`Error fetching mappings from "${normalizedUrl}": ${(e && e.message) || e}`);
         return [];
     }
 }

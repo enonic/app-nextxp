@@ -7,7 +7,13 @@ const vm = require('node:vm');
 const previewSource = fs.readFileSync(path.join(__dirname, '../../main/resources/admin/extensions/preview-next/preview-next.js'), 'utf8');
 const configSource = fs.readFileSync(path.join(__dirname, '../../main/resources/lib/export/config.js'), 'utf8');
 
+function requireConfigStub(name) {
+    assert.ok(['/lib/xp/content', '/lib/xp/context'].includes(name), 'Unexpected module: ' + name);
+    return {};
+}
+
 for (const siteConfig of [
+    [null, {applicationKey: 'com.enonic.app.nextxp', config: {}}],
     [{applicationKey: 'com.enonic.app.nextxp', config: {configName: 'production'}}],
     {applicationKey: 'com.enonic.app.nextxp', config: {configName: 'production'}},
     [{applicationKey: 'com.enonic.app.nextxp', config: {}}],
@@ -23,10 +29,10 @@ for (const siteConfig of [
                     'nextjs.default.url': 'http://localhost:3000',
                 },
             };
-            const configContext = {exports: {}, app};
+            const configContext = {exports: {}, app, require: requireConfigStub};
             vm.runInNewContext(configSource, configContext);
             const configs = [].concat(siteConfig);
-            const appConfig = configs.find((config) => config.applicationKey === app.name);
+            const appConfig = configs.find((config) => config && config.applicationKey === app.name);
             let fetches = 0;
             const context = {
                 exports: {}, app,
@@ -78,6 +84,7 @@ for (const siteConfig of [
 test('site configuration takes precedence over project configuration', () => {
     const context = {
         exports: {},
+        require: requireConfigStub,
         app: {
             name: 'com.enonic.app.nextxp',
             config: {
@@ -92,3 +99,26 @@ test('site configuration takes precedence over project configuration', () => {
 
     assert.equal(context.exports.getServerConfig(site, project).url, 'https://site.example.com');
 });
+
+for (const [repo, branch, switches] of [['a', 'draft', false], ['a', 'master', true], ['b', 'draft', true]]) {
+    test('site lookup from a/draft into ' + repo + '/' + branch, () => {
+        let switched = false;
+        let key;
+        const context = {exports: {}, log: {error() {}}, require(name) {
+            if (name === '/lib/xp/context') {
+                return {get: () => ({repository: 'a', branch: 'draft'}), run(params, fn) {
+                    switched = true;
+                    assert.equal(params.repository, repo);
+                    assert.equal(params.branch, branch);
+                    return fn();
+                }};
+            }
+            assert.equal(name, '/lib/xp/content');
+            return {getSite(params) { key = params.key; return 'site'; }};
+        }};
+        vm.runInNewContext(configSource, context);
+        assert.equal(context.exports.getSite('id', repo, branch), 'site');
+        assert.equal(switched, switches);
+        assert.equal(key, 'id');
+    });
+}

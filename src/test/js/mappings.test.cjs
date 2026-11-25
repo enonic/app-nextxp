@@ -38,6 +38,8 @@ function createModule(request) {
 }
 
 const failures = [
+    ['null response', () => null],
+    ['null mapping entry', () => ({status: 200, body: '{"mappings":[null]}'})],
     ['network error', () => { throw new Error('Connection refused'); }],
     ['HTTP error', () => ({status: 503, statusText: 'Service Unavailable'})],
     ['invalid JSON', () => ({status: 200, body: '<html>Unavailable</html>'})],
@@ -77,4 +79,17 @@ test('caches mappings separately per project', () => {
         'http://localhost:3000/api/mappings?xp=first-payload',
         'http://localhost:3000/api/mappings?xp=second-payload',
     ]);
+});
+
+test('isolates frontends within a project, ignoring trailing slashes and payload changes', () => {
+    const requests = [];
+    const module = createModule(({url}) => {
+        requests.push(url);
+        return {status: 200, body: JSON.stringify({mappings})};
+    });
+    assert.equal(module.getMappings(null, 'project').length, 0);
+    module.getMappings('https://one/', 'project', 'a');
+    module.getMappings('https://two', 'project', 'b');
+    module.getMappings('https://one', 'project', 'c');
+    assert.deepEqual(requests, ['https://one/api/mappings?xp=a', 'https://two/api/mappings?xp=b']);
 });

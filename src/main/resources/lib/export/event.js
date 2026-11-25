@@ -4,7 +4,6 @@ var projectLib = require('/lib/xp/project');
 var contextLib = require('/lib/xp/context');
 var nodeLib = require('/lib/xp/node');
 var clusterLib = require('/lib/xp/cluster');
-var contentLib = require('/lib/xp/content');
 
 var configLib = require('./config');
 var widgetLib = require('./widget');
@@ -23,10 +22,6 @@ function subscribe() {
 
     subscribeToNodeEvents();
     subscribeToRepoEvents();
-}
-
-function shouldHandleEvent() {
-    return clusterLib.isLeader();
 }
 
 function queryNextjsRepos() {
@@ -97,11 +92,6 @@ function subscribeToNodeEvents() {
         localOnly: false,
         callback: function (event) {
 
-            if (!shouldHandleEvent()) {
-                log.debug('Got [' + event.type + '] event: leaving it to master node');
-                return;
-            }
-
             log.debug('Got [' + event.type + '] event: ' + JSON.stringify(event, null, 2));
 
             var reposUpdated = false;
@@ -128,13 +118,16 @@ function subscribeToNodeEvents() {
                             id: node.id,
                             path: node.path,
                             repo: node.repo,
+                            branch: node.branch,
                         });
                     }
                     if (isMaster) {
-                        sendRevalidateAll(node.id, node.path, node.repo);
-                        OLD_PATHS_CACHE.forEach(function (val) {
-                            sendRevalidateNode(val.id, val.path, val.repo);
-                        });
+                        if (clusterLib.isLeader()) {
+                            sendRevalidateAll(node.id, node.repo, node.branch);
+                            OLD_PATHS_CACHE.forEach(function (val) {
+                                sendRevalidateNode(val.id, val.path, val.repo, val.branch);
+                            });
+                        }
                         OLD_PATHS_CACHE.length = 0;
                         break;
                     }
@@ -166,38 +159,20 @@ function isSitePublished(type, node) {
     return nodeData && nodeData.type === 'portal:site';
 }
 
-function getSite(pathOrId, repoId) {
-    var context = contextLib.get();
-    if (context.repository !== repoId) {
-        try {
-            return contextLib.run({
-                principals: ['role:system.admin'],
-                repository: repoId,
-            }, function () {
-                return contentLib.getSite({ key: pathOrId || '/' });
-            });
-        } catch (e) {
-            log.error('Failed to get site config: ' + e.message);
-        }
-    } else {
-        return contentLib.getSite({ key: pathOrId || '/' });
-    }
-}
-
-function sendRevalidateAll(nodeId, nodePath, repoId) {
-    var site = getSite(nodeId, repoId);
+function sendRevalidateAll(nodeId, repoId, branch) {
+    var site = configLib.getSite(nodeId, repoId, branch);
     debouncer.debounce(function () {
         sendRevalidateRequest(null, site, repoId);
     }, 500);
 }
 
-function sendRevalidateNode(nodeId, nodePath, repoId) {
+function sendRevalidateNode(nodeId, nodePath, repoId, branch) {
     var contentPath = nodePath.replace(/\/content\/[^\s\/]+/, '');
     if (!contentPath || contentPath.trim().length === 0) {
         contentPath = '/';
     }
 
-    var site = getSite(nodeId, repoId);
+    var site = configLib.getSite(nodeId, repoId, branch);
     sendRevalidateRequest(contentPath, site, repoId);
 }
 
