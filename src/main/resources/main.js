@@ -1,12 +1,4 @@
-const clusterLib = require('/lib/xp/cluster');
 const nextjsEventLib = require('/lib/nextxp/event');
 
-
-const initialize = function () {
-    nextjsEventLib.subscribe();
-};
-
-
-if (clusterLib.isMaster()) {
-    initialize();
-}
+// Subscribe on every app node so a new leader already has a listener.
+nextjsEventLib.subscribe();
